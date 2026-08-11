@@ -1,0 +1,6 @@
+.DS_Store
+.build/
+dist/
+tmp/
+*.fmp12
+Documentation/HANDOVER_*.md
