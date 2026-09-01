@@ -47,15 +47,17 @@ final class FileMakerXMLCompilerTests: XCTestCase {
     func testGoToRecordVariantsUseNativeFileMakerClipboardShape() {
         let result = compiler.compile("""
         Go to Record/Request/Page [ First ]
+        Go to Record/Request/Page [ Next ]
         Go to Record/Request/Page [ Next ; Exit after last ]
         Go to Record/Request/Page [ By calculation: $sourceRecordNumber ]
         """)
 
         XCTAssertEqual(result.errorCount, 0)
-        XCTAssertEqual(result.steps.count, 3)
-        XCTAssertEqual(result.xml.components(separatedBy: "id=\"16\"").count - 1, 3)
+        XCTAssertEqual(result.steps.count, 4)
+        XCTAssertEqual(result.xml.components(separatedBy: "id=\"16\"").count - 1, 4)
         XCTAssertTrue(result.xml.contains("<RowPageLocation value=\"First\"></RowPageLocation>"))
         XCTAssertTrue(result.xml.contains("<Exit state=\"True\"></Exit>"))
+        XCTAssertFalse(result.xml.contains("<Exit state=\"False\"></Exit>"))
         XCTAssertTrue(result.xml.contains("<RowPageLocation value=\"Next\"></RowPageLocation>"))
         XCTAssertTrue(result.xml.contains("<NoInteract state=\"True\"></NoInteract>"))
         XCTAssertTrue(result.xml.contains("<RowPageLocation value=\"ByCalculation\"></RowPageLocation>"))

@@ -131,8 +131,11 @@ public struct FileMakerXMLCompiler: Sendable {
                 nodes.append("  <Calculation>\(cdata(calculation))</Calculation>")
                 return stepElement(id: 16, name: "Go to Record/Request/Page", body: nodes.joined(separator: "\n"))
             }
-            if destination == .next || destination == .previous {
-                nodes.append("  <Exit state=\"\(exitAfterLast ? "True" : "False")\"></Exit>")
+            // FileMaker interprets the presence of <Exit> as enabled, even when
+            // its state attribute is False. Emit the element only for the
+            // non-default "Exit after last" option.
+            if exitAfterLast && (destination == .next || destination == .previous) {
+                nodes.append("  <Exit state=\"True\"></Exit>")
             }
             nodes.append("  <RowPageLocation value=\"\(location)\"></RowPageLocation>")
             return stepElement(id: 16, name: "Go to Record/Request/Page", body: nodes.joined(separator: "\n"))
