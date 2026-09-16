@@ -86,7 +86,7 @@ This is a coverage index, not a copy of Claris documentation. Follow each step l
 | [Insert from Device](https://help.claris.com/en/pro-help/content/insert-from-device.html) | Preserve only |
 | [Insert from Index](https://help.claris.com/en/pro-help/content/insert-from-index.html) | Preserve only |
 | [Insert from Last Visited](https://help.claris.com/en/pro-help/content/insert-from-last-visited.html) | Preserve only |
-| [Insert from URL](https://help.claris.com/en/pro-help/content/insert-from-url.html) | Preserve only |
+| [Insert from URL](https://help.claris.com/en/pro-help/content/insert-from-url.html) | Editable subset |
 | [Insert PDF](https://help.claris.com/en/pro-help/content/insert-pdf.html) | Preserve only |
 | [Insert Picture](https://help.claris.com/en/pro-help/content/insert-picture.html) | Preserve only |
 | [Insert Text](https://help.claris.com/en/pro-help/content/insert-text.html) | Preserve only |
@@ -159,16 +159,16 @@ This is a coverage index, not a copy of Claris documentation. Follow each step l
 
 | Script step | Bridge support |
 |---|---|
-| [Close Data File](https://help.claris.com/en/pro-help/content/close-data-file.html) | Preserve only |
+| [Close Data File](https://help.claris.com/en/pro-help/content/close-data-file.html) | Editable subset |
 | [Close File](https://help.claris.com/en/pro-help/content/close-file.html) | Preserve only |
 | [Convert File](https://help.claris.com/en/pro-help/content/convert-file.html) | Preserve only |
-| [Create Data File](https://help.claris.com/en/pro-help/content/create-data-file.html) | Preserve only |
+| [Create Data File](https://help.claris.com/en/pro-help/content/create-data-file.html) | Editable subset |
 | [Delete File](https://help.claris.com/en/pro-help/content/delete-file.html) | Preserve only |
 | [Get Data File Position](https://help.claris.com/en/pro-help/content/get-data-file-position.html) | Preserve only |
 | [Get File Exists](https://help.claris.com/en/pro-help/content/get-file-exists.html) | Preserve only |
 | [Get File Size](https://help.claris.com/en/pro-help/content/get-file-size.html) | Preserve only |
 | [New File](https://help.claris.com/en/pro-help/content/new-file.html) | Preserve only |
-| [Open Data File](https://help.claris.com/en/pro-help/content/open-data-file.html) | Preserve only |
+| [Open Data File](https://help.claris.com/en/pro-help/content/open-data-file.html) | Editable subset |
 | [Open File](https://help.claris.com/en/pro-help/content/open-file.html) | Preserve only |
 | [Print](https://help.claris.com/en/pro-help/content/print.html) | Preserve only |
 | [Print Setup](https://help.claris.com/en/pro-help/content/print-setup.html) | Preserve only |
@@ -180,7 +180,7 @@ This is a coverage index, not a copy of Claris documentation. Follow each step l
 | [Set Data File Position](https://help.claris.com/en/pro-help/content/set-data-file-position.html) | Preserve only |
 | [Set Multi-User](https://help.claris.com/en/pro-help/content/set-multi-user.html) | Preserve only |
 | [Set Use System Formats](https://help.claris.com/en/pro-help/content/set-use-system-formats.html) | Editable subset |
-| [Write to Data File](https://help.claris.com/en/pro-help/content/write-to-data-file.html) | Preserve only |
+| [Write to Data File](https://help.claris.com/en/pro-help/content/write-to-data-file.html) | Editable subset |
 
 ## [Accounts script steps](https://help.claris.com/en/pro-help/content/accounts-script-steps.html)
 

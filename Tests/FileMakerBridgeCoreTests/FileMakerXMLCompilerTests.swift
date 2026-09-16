@@ -5,6 +5,54 @@ final class FileMakerXMLCompilerTests: XCTestCase {
     private let compiler = FileMakerXMLCompiler()
     private let decompiler = FileMakerXMLDecompiler()
 
+    func testWrappedRecordAndFoundSetStepsCompileAndRoundTrip() {
+        let source = """
+        Commit Records/Requests
+        [ No dialog ]
+        Delete Record/Request
+        [ No dialog ]
+        Revert Record/Request
+        [ With dialog: On ]
+        Constrain Found Set [ ]
+        Extend Found Set
+        [ ]
+        Go to Record/Request/Page [
+            $sourceRecordNumber
+        ]
+        [ No dialog ]
+        """
+        let result = compiler.compile(source)
+        XCTAssertEqual(result.errorCount, 0)
+        XCTAssertEqual(result.warningCount, 0)
+        XCTAssertEqual(result.steps.count, 6)
+        XCTAssertEqual(result.logicalLines.map(\.lineNumber), [1, 3, 5, 7, 8, 10])
+        for id in [75, 9, 51, 126, 127, 16] {
+            XCTAssertTrue(result.xml.contains("id=\"\(id)\""))
+        }
+        XCTAssertTrue(result.xml.contains("<Calculation><![CDATA[$sourceRecordNumber]]></Calculation>"))
+        let decoded = decompiler.decompile(result.xml)
+        let rebuilt = compiler.compile(decoded.text)
+        XCTAssertEqual(rebuilt.errorCount, 0)
+        XCTAssertEqual(rebuilt.warningCount, 0)
+        XCTAssertEqual(rebuilt.steps.count, 6)
+    }
+
+    func testWrappedOptionsDoNotAttachToCommentsOrHideInvalidOptions() {
+        let lines = TextUtilities.normalizeLogicalLines("# comment\n[ No dialog ]")
+        XCTAssertEqual(lines.count, 2)
+        for source in [
+            "Delete Record/Request\n[ With dialog: Maybe ]",
+            "Revert Record/Request [ Invalid ]",
+            "Constrain Found Set [ Restore ]",
+            "Go to Record/Request/Page [ By calculation: $row ; Invalid ]"
+        ] {
+            XCTAssertGreaterThan(compiler.compile(source).warningCount, 0, source)
+        }
+        let defaults = compiler.compile("Delete Record/Request [ ]\nRevert Record/Request [ ]")
+        XCTAssertEqual(defaults.errorCount, 0)
+        XCTAssertEqual(defaults.xml.components(separatedBy: "<NoInteract state=\"False\"").count - 1, 2)
+    }
+
     func testExampleCompilesWithoutIssues() {
         let result = compiler.compile(ExampleScript.fileMaker26)
 
@@ -152,6 +200,40 @@ final class FileMakerXMLCompilerTests: XCTestCase {
         XCTAssertTrue(compiled.xml.contains("<Calculation><![CDATA[\"Create\"]]></Calculation>"))
         XCTAssertTrue(imported.text.contains("Default Button: \"Cancel\", Commit: No"))
         XCTAssertTrue(imported.text.contains("Button 2: \"Create\", Commit: Yes"))
+    }
+
+    func testCustomDialogAcceptsArbitraryLabelsWithoutCommit() {
+        for label in ["OK", "Done", "Not now", "繼續", "Approval"] {
+            let result = compiler.compile("Show Custom Dialog [ Message: \"Ready\" ; Default Button: \"\(label)\" ]", options: CompilationOptions(convertUnsupportedLinesToComments: false))
+            XCTAssertEqual(result.errorCount, 0)
+            XCTAssertEqual(result.warningCount, 0)
+            XCTAssertTrue(result.xml.contains("id=\"87\""))
+            XCTAssertFalse(result.xml.contains("FileMaker Script Bridge TODO"))
+            XCTAssertTrue(decompiler.decompile(result.xml).text.contains("Default Button: \"\(label)\", Commit: No"))
+        }
+    }
+
+    func testCustomDialogMixedAutomaticAndExplicitCommitWithCalculatedLabel() {
+        let result = compiler.compile("""
+        Show Custom Dialog [
+            Title: "Build" ; Message: "Choose" ;
+            Default Button: “Cancel” ;
+            Button 2: $actionLabel, Commit: Yes ;
+            Button 3: “Playground”
+        ]
+        """, options: CompilationOptions(convertUnsupportedLinesToComments: false))
+        XCTAssertEqual(result.errorCount, 0)
+        XCTAssertEqual(result.warningCount, 0)
+        let text = decompiler.decompile(result.xml).text
+        XCTAssertTrue(text.contains("Default Button: \"Cancel\", Commit: No"))
+        XCTAssertTrue(text.contains("Button 2: $actionLabel, Commit: Yes"))
+        XCTAssertTrue(text.contains("Button 3: \"Playground\", Commit: No"))
+        XCTAssertEqual(compiler.compile(text).xml, result.xml)
+    }
+
+    func testCustomDialogInvalidExplicitCommitStillRejected() {
+        let result = compiler.compile("Show Custom Dialog [ Message: \"Ready\" ; Default Button: \"Done\", Commit: Maybe ]", options: CompilationOptions(convertUnsupportedLinesToComments: false))
+        XCTAssertGreaterThan(result.errorCount, 0)
     }
 
     func testCommonAITextVariantsAreNormalizedSafely() {
@@ -783,7 +865,7 @@ final class FileMakerXMLCompilerTests: XCTestCase {
     func testOfficialCatalogueMatchesAuditedClarisReference() {
         XCTAssertEqual(FileMakerScriptStepCatalog.entries.count, 216)
         XCTAssertEqual(FileMakerScriptStepCatalog.categories.count, 14)
-        XCTAssertEqual(FileMakerScriptStepCatalog.editableSubsetCount, 92)
+        XCTAssertEqual(FileMakerScriptStepCatalog.editableSubsetCount, 97)
         XCTAssertEqual(Set(FileMakerScriptStepCatalog.entries.map(\.id)).count, 216)
 
         XCTAssertEqual(

@@ -108,6 +108,11 @@ public enum CompiledStep: Sendable, Hashable {
     case exportRecords(options: ExportRecordsOptions)
     case saveRecordsAsExcel(options: SaveRecordsAsExcelOptions)
     case sendMail(options: SendMailOptions)
+    case createDataFile(path: String, createDirectories: Bool)
+    case openDataFile(path: String, target: DataReference)
+    case writeDataFile(fileID: String, source: DataReference, utf8: Bool, appendLineFeed: Bool)
+    case closeDataFile(fileID: String)
+    case insertFromURL(target: DataReference, url: String, curl: String?, selectAll: Bool, withDialog: Bool, verifySSL: Bool, encodeURL: Bool)
     case noOption(id: Int, name: String)
     case exportFieldContents(table: String, field: String, path: String, createDirectories: Bool)
     case insertFile(table: String, field: String, path: String)
@@ -332,4 +337,10 @@ public struct DecompilationResult: Sendable {
     public var isSuccessful: Bool {
         stepCount > 0 && !text.isEmpty
     }
+}
+
+/// A native field/variable reference, not an arbitrary calculation.
+public enum DataReference: Sendable, Hashable {
+    case variable(String)
+    case field(table: String, name: String)
 }

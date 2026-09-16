@@ -39,6 +39,12 @@ CATEGORY_PAGES = [
 # These names reflect the compiler's actual authored-text capability. "Editable"
 # means the documented subset in SUPPORTED_SYNTAX.md, not every option Claris offers.
 EDITABLE_SUBSET = {
+    "Create Data File",
+    "Open Data File",
+    "Write to Data File",
+    "Close Data File",
+    "Insert from URL",
+
     "# (Comment)",
     "Allow User Abort",
     "Allow Formatting Bar",

@@ -303,3 +303,42 @@ Set Variable [
 - Direct Accessibility-based automatic pasting is intentionally excluded. The user chooses the target script and presses `⌘V`, preventing insertion into the wrong database or script.
 - The app is ad-hoc signed for local validation, not Developer ID signed or notarized for public distribution.
 - Copying for AI only places plain text on the local clipboard. The user controls whether that text is transmitted to an external AI service.
+
+## Data files and Insert from URL
+
+Captured in FileMaker Pro's TEST script on 2026-09-14; supported in both directions:
+
+```text
+Create Data File [ “$tempPath” ; Create folders: On ]
+Open Data File [ “$tempPath” ; Target: $fileID ]
+Write to Data File [ File ID: $fileID ; Data source: $csvText ; Write as: UTF-8 ; Append line feed: On ]
+Close Data File [ File ID: $fileID ]
+Insert from URL [ Select ; With dialog: Off ; Target: $response ; $url ; Verify SSL Certificates ; cURL options: $curl ]
+```
+
+- Create/Open accept a quoted FileMaker file path or a path variable, with optional
+  `File:` label. FileMaker's displayed `“$tempPath”` represents the path variable,
+  not a calculation returning the literal string `$tempPath`.
+- Targets and write data sources accept simple `$variable`/`$$variable` names
+  (letters, numbers, underscores) or `Table::Field`. Repetitions and calculated
+  target names remain preserve-only. Put a calculated data source in a variable first.
+- File IDs, URLs, and cURL options are calculations and retain function semicolons.
+- Write supports `UTF-8` and `UTF-16`; omitted encoding means UTF-16. Omitted
+  `Append line feed` means Off; bare `Append line feed` means On. Create folders
+  defaults to On. Explicit On/Off settings are retained.
+- URL syntax also accepts `[ $response ; $url ; cURL options: $curl ]` and a following
+  `[ Select ; No dialog ]` block. `URL:` is optional after a labelled target.
+- URL options accept `Select: On/Off`, `With dialog: On/Off`,
+  `Verify SSL Certificates: On/Off`, and `Automatically encode URL: On/Off`.
+  Bare `Select`, `Verify SSL Certificates`, and `Do not automatically encode URL`
+  are supported. Defaults are Select Off, dialog Off, SSL verification Off, and
+  automatic URL encoding On, matching the corresponding absent readable options.
+  cURL options are optional.
+- Unknown/duplicate options are reported rather than discarded. Native variants
+  outside this subset, including disabled steps, remain preserved with locked options.
+
+These steps only generate clipboard data. Conversion does not open/write files,
+make requests, or run the script. References: [Insert from URL](https://help.claris.com/en/pro-help/content/insert-from-url.html),
+[Open Data File](https://help.claris.com/en/pro-help/content/open-data-file.html),
+[Write to Data File](https://help.claris.com/en/pro-help/content/write-to-data-file.html),
+[Close Data File](https://help.claris.com/en/pro-help/content/close-data-file.html).

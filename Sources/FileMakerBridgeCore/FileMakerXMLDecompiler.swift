@@ -98,6 +98,8 @@ public struct FileMakerXMLDecompiler: Sendable {
         let name = node.attributes["name"] ?? "Unknown Step"
 
         switch id {
+        case 160, 190, 191, 192, 196:
+            return renderDataAndURLStep(node, id: id, name: name)
         case 1:
             let scriptName = node.child(named: "Script")?.attributes["name"] ?? "<unknown script>"
             var result = "Perform Script [ \(quoteObjectName(scriptName))"
@@ -591,6 +593,60 @@ public struct FileMakerXMLDecompiler: Sendable {
             text += "\n# Options detected: " + hints.joined(separator: " ; ")
         }
         return RenderedStep(name: name, text: text, unsupported: true)
+    }
+
+    private func renderDataAndURLStep(_ node: ParsedXMLNode, id: Int?, name: String) -> RenderedStep {
+        func flag(_ key: String, inverted: Bool = false) -> String {
+            let enabled = boolAttribute(node.child(named: key), name: "state")
+            return enabled != inverted ? "On" : "Off"
+        }
+        func reference() -> String? {
+            guard let field = node.child(named: "Field") else { return nil }
+            if let table = field.attributes["table"], let name = field.attributes["name"] { return "\(table)::\(name)" }
+            return field.trimmedText.isEmpty ? nil : field.trimmedText
+        }
+        var text: String
+        switch id {
+        case 190:
+            guard let path = node.directText(named: "UniversalPathList") else { return renderGeneric(node, id: id, name: name) }
+            text = "Create Data File [ \(quoteObjectName(path)) ; Create folders: \(flag("CreateDirectories")) ]"
+        case 191:
+            guard let path = node.directText(named: "UniversalPathList"), let target = reference() else { return renderGeneric(node, id: id, name: name) }
+            text = "Open Data File [ \(quoteObjectName(path)) ; Target: \(target) ]"
+        case 192:
+            guard let fileID = node.directText(named: "Calculation"), let source = reference(),
+                  let encoding = node.child(named: "DataSourceType")?.attributes["value"], ["1", "2"].contains(encoding) else { return renderGeneric(node, id: id, name: name) }
+            text = "Write to Data File [ File ID: \(fileID) ; Data source: \(source) ; Write as: \(encoding == "2" ? "UTF-8" : "UTF-16") ; Append line feed: \(flag("AppendLineFeed")) ]"
+        case 196:
+            guard let fileID = node.directText(named: "Calculation") else { return renderGeneric(node, id: id, name: name) }
+            text = "Close Data File [ File ID: \(fileID) ]"
+        default:
+            guard let target = reference(), let url = node.directText(named: "Calculation") else { return renderGeneric(node, id: id, name: name) }
+            text = "Insert from URL [ Select: \(flag("SelectAll")) ; With dialog: \(flag("NoInteract", inverted: true)) ; Target: \(target) ; URL: \(url) ; Verify SSL Certificates: \(flag("VerifySSLCertificates")) ; Automatically encode URL: \(flag("DontEncodeURL", inverted: true))"
+            if let curl = node.text(at: ["CURLOptions", "Calculation"]) { text += " ; cURL options: \(curl)" }
+            text += " ]"
+        }
+        // Offer editable text only if rebuilding retains every captured setting.
+        // Native field IDs are resolved by table/name when pasted into a file.
+        let compiled = FileMakerXMLCompiler().compile(text, options: CompilationOptions(convertUnsupportedLinesToComments: false))
+        guard compiled.errorCount == 0, let data = compiled.xml.data(using: .utf8) else { return renderGeneric(node, id: id, name: name) }
+        let builder = XMLTreeBuilder()
+        let parser = XMLParser(data: data)
+        parser.delegate = builder
+        guard parser.parse(), let rebuilt = builder.roots.flatMap({ $0.descendants(named: "Step") }).first,
+              equivalentDataStep(node, rebuilt) else { return renderGeneric(node, id: id, name: name) }
+        return supported(name, text)
+    }
+
+    private func equivalentDataStep(_ original: ParsedXMLNode, _ rebuilt: ParsedXMLNode) -> Bool {
+        var lhs = original.attributes
+        var rhs = rebuilt.attributes
+        if original.name == "Field", lhs["id"] != nil, rhs["id"] != nil {
+            lhs.removeValue(forKey: "id")
+            rhs.removeValue(forKey: "id")
+        }
+        return original.name == rebuilt.name && lhs == rhs && original.trimmedText == rebuilt.trimmedText &&
+            original.children.count == rebuilt.children.count && zip(original.children, rebuilt.children).allSatisfy { equivalentDataStep($0, $1) }
     }
 
     private func renderExportRecords(_ node: ParsedXMLNode, id: Int?, name: String) -> RenderedStep {

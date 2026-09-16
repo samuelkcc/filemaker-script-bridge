@@ -31,8 +31,39 @@ public struct FileMakerXMLCompiler: Sendable {
         return "<fmxmlsnippet type=\"FMObjectList\">\n\(body)\n</fmxmlsnippet>"
     }
 
+    private var collapsedNode: String { stateNode("DisableStepCollapsed", false) }
+
+    private func stateNode(_ name: String, _ state: Bool) -> String {
+        "<\(name) state=\"\(state ? "True" : "False")\"></\(name)>"
+    }
+
+    private func dataReferenceXML(_ reference: DataReference) -> String {
+        switch reference {
+        case .variable(let name): return "<Text></Text><Field>\(escapeXML(name))</Field>"
+        case .field(let table, let name): return "<Text></Text><Field table=\"\(escapeAttribute(table))\" id=\"0\" name=\"\(escapeAttribute(name))\"></Field>"
+        }
+    }
+
     private func renderStep(_ step: CompiledStep) -> String {
         switch step {
+        case .createDataFile(let path, let folders):
+            return stepElement(id: 190, name: "Create Data File", body:
+                stateNode("CreateDirectories", folders) + collapsedNode + "<UniversalPathList>\(escapeXML(path))</UniversalPathList>")
+        case .openDataFile(let path, let target):
+            return stepElement(id: 191, name: "Open Data File", body:
+                collapsedNode + "<UniversalPathList>\(escapeXML(path))</UniversalPathList>" + dataReferenceXML(target))
+        case .writeDataFile(let fileID, let source, let utf8, let append):
+            return stepElement(id: 192, name: "Write to Data File", body:
+                stateNode("AppendLineFeed", append) + collapsedNode + "<DataSourceType value=\"\(utf8 ? "2" : "1")\"></DataSourceType>" +
+                "<Calculation>\(cdata(fileID))</Calculation>" + dataReferenceXML(source))
+        case .closeDataFile(let fileID):
+            return stepElement(id: 196, name: "Close Data File", body: collapsedNode + "<Calculation>\(cdata(fileID))</Calculation>")
+        case .insertFromURL(let target, let url, let curl, let select, let dialog, let ssl, let encode):
+            var body = stateNode("NoInteract", !dialog) + stateNode("DontEncodeURL", !encode) + stateNode("SelectAll", select) + collapsedNode + stateNode("VerifySSLCertificates", ssl)
+            if let curl { body += "<CURLOptions><Calculation>\(cdata(curl))</Calculation></CURLOptions>" }
+            body += "<Calculation>\(cdata(url))</Calculation>" + dataReferenceXML(target)
+            return stepElement(id: 160, name: "Insert from URL", body: body)
+
         case .comment(let text, _):
             return stepElement(id: 89, name: "# (comment)", body: "  <Text>\(escapeXML(text))</Text>")
 

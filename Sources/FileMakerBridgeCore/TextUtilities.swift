@@ -44,7 +44,26 @@ enum TextUtilities {
             result.append(LogicalLine(lineNumber: currentLineNumber, text: current))
         }
 
-        return result
+        // AI-formatted scripts often put the option block on the next line.
+        // Join only onto a recognized step, keeping its original diagnostic line.
+        var joined: [LogicalLine] = []
+        for line in result {
+            if line.text.hasPrefix("["), line.text.hasSuffix("]"),
+               let previous = joined.last,
+               FileMakerScriptStepCatalog.officialStep(matching: previous.text) != nil {
+                let text: String
+                if previous.text.hasSuffix("]") {
+                    let options = line.text.dropFirst().dropLast().trimmingCharacters(in: .whitespacesAndNewlines)
+                    text = String(previous.text.dropLast()) + (options.isEmpty ? "" : " ; " + options) + " ]"
+                } else {
+                    text = previous.text + " " + line.text
+                }
+                joined[joined.count - 1] = LogicalLine(lineNumber: previous.lineNumber, text: text)
+            } else {
+                joined.append(line)
+            }
+        }
+        return joined
     }
 
     static func caseInsensitivePrefix(_ prefix: String, in value: String) -> Bool {

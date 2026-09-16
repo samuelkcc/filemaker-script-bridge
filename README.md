@@ -1,5 +1,11 @@
 # FileMaker Script Bridge
 
+Custom dialog buttons accept arbitrary labels, including calculated and translated
+labels. For an explicitly listed button, an omitted `Commit` setting defaults to
+`No`; an explicit `Commit: Yes` or `Commit: No` is preserved. A single button needs
+no additional options. Button wording is never used to infer whether to save input
+data. Invalid explicit commit values still require correction.
+
 **Turn AI-generated script text into native FileMaker script steps—without typing every step again.**
 
 ChatGPT, Gemini, and other AI tools can help write or improve a FileMaker script, but their plain-text output cannot be pasted into FileMaker Pro Script Workspace as working steps. FileMaker expects a private, structured clipboard format rather than ordinary text.
@@ -43,8 +49,8 @@ ChatGPT / Gemini / editor
 - Fully local conversion with no network requests, analytics, or accounts.
 - Live syntax colouring, validation, issue highlighting, and XML preview.
 - Searchable reference for all 216 official FileMaker Pro 2026 script steps.
-- 92 tested editable subsets that can be reconstructed as native FileMaker steps.
-- Completion-template comments for the other 124 official steps, keeping the AI's intent visible for manual setup in FileMaker.
+- 97 tested editable subsets that can be reconstructed as native FileMaker steps.
+- Completion-template comments for the other 119 official steps, keeping the AI's intent visible for manual setup in FileMaker.
 - Optional strict native-only mode when the clipboard must contain only tested native steps.
 - Lossless same-session preservation for copied FileMaker steps and options that are not yet editable.
 
@@ -140,3 +146,22 @@ This is independent software. It is not made by, affiliated with, endorsed by, o
 If FileMaker Script Bridge saves you manual typing time, you can support continued development and the careful capture, reconstruction, and FileMaker verification of more native script-step options:
 
 [![Buy Samuel a coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://buymeacoffee.com/samuelchen)
+
+### Wrapped record and find steps
+
+Option blocks can start on the line after a step, including `Delete Record/Request`,
+`Revert Record/Request`, and `Commit Records/Requests` followed by `[ No dialog ]`.
+Additional wrapped option blocks are joined to the same step. Diagnostic line numbers
+continue to identify the start of the step.
+
+`Constrain Found Set [ ]` uses current find requests with Find without indexes off;
+`Extend Found Set [ ]` also uses current requests. Stored `Restore` requests still need
+native FileMaker capture. Calculated navigation accepts `[ $recordNumber ]` with an
+optional following `[ No dialog ]`, as well as `[ By calculation: $recordNumber ]`.
+Empty Delete/Revert option blocks retain a confirmation dialog; explicit `No dialog`
+or `With dialog: On/Off` settings are preserved.
+
+The bridge now supports Create/Open/Write/Close Data File and Insert from URL using
+native FileMaker captures, including variable and field targets, UTF-8/UTF-16 writes,
+line-feed options, cURL calculations, SSL verification, and URL encoding settings.
+See [supported syntax](Documentation/SUPPORTED_SYNTAX.md#data-files-and-insert-from-url).

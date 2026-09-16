@@ -106,6 +106,8 @@ public struct FileMakerTextParser: Sendable {
                 isFallback: false
             ))
         }
+        if let result = parseDataAndURLStep(line) { return result }
+
         if line.hasPrefix("//") {
             return .step(.comment(
                 text: String(line.dropFirst(2)).trimmingCharacters(in: .whitespacesAndNewlines),
@@ -383,16 +385,6 @@ public struct FileMakerTextParser: Sendable {
         }
 
         if let body = TextUtilities.bracketBody(forPrefix: "Go to Record/Request/Page", in: line) {
-            if let calculation = TextUtilities.value(afterLabel: "By calculation:", in: body) {
-                guard !calculation.isEmpty else {
-                    return .malformed("Go to Record/Request/Page By calculation requires a calculation")
-                }
-                return .step(.goToRecord(
-                    destination: .byCalculation(calculation),
-                    exitAfterLast: false
-                ))
-            }
-
             let components = TextUtilities.topLevelComponents(in: body)
             guard let rawDestination = components.first, !rawDestination.isEmpty else {
                 return .malformed("Go to Record/Request/Page requires First, Last, Previous, Next, or By calculation")
@@ -405,13 +397,20 @@ public struct FileMakerTextParser: Sendable {
             case "previous": destination = .previous
             case "next": destination = .next
             default:
-                return .malformed("Go to Record/Request/Page requires First, Last, Previous, Next, or By calculation")
+                let calculation = TextUtilities.value(afterLabel: "By calculation:", in: rawDestination) ?? rawDestination
+                guard !calculation.isEmpty else {
+                    return .malformed("Go to Record/Request/Page By calculation requires a calculation")
+                }
+                destination = .byCalculation(calculation)
             }
 
             var exitAfterLast = false
             for option in components.dropFirst() {
                 if option.caseInsensitiveCompare("Exit after last") == .orderedSame {
                     exitAfterLast = true
+                } else if option.caseInsensitiveCompare("No dialog") == .orderedSame,
+                          case .byCalculation = destination {
+                    continue
                 } else if !option.isEmpty {
                     return .malformed("Unsupported Go to Record/Request/Page option: \(option)")
                 }
@@ -454,8 +453,17 @@ public struct FileMakerTextParser: Sendable {
                     TextUtilities.value(afterLabel: "Commit:", in: $0)
                 }.first
                 let commitValue = inlineCommitValue ?? followingCommitValue
-                guard let commitsRecord = commitValue.flatMap(parseYesNo) else {
-                    return .malformed("Show Custom Dialog button requires Commit: Yes or No")
+                // Labels may be arbitrary calculations or any language. Never infer
+                // data-writing intent from words such as OK, Cancel, or Continue.
+                // Message-only dialogs need no commit setting to operate.
+                let commitsRecord: Bool
+                if let commitValue {
+                    guard let explicitCommit = parseYesNo(commitValue) else {
+                        return .malformed("Show Custom Dialog Commit must be Yes or No when specified")
+                    }
+                    commitsRecord = explicitCommit
+                } else {
+                    commitsRecord = false
                 }
                 buttons.append(DialogButton(
                     calculation: normalizeSmartQuotedCalculation(calculation),
@@ -525,7 +533,9 @@ public struct FileMakerTextParser: Sendable {
         for (name, id) in [("Delete Record/Request", 9), ("Delete All Records", 10), ("Revert Record/Request", 51)] {
             if let body = TextUtilities.bracketBody(forPrefix: name, in: line) {
                 let noInteract: Bool?
-                if body.caseInsensitiveCompare("No dialog") == .orderedSame {
+                if body.isEmpty {
+                    noInteract = false
+                } else if body.caseInsensitiveCompare("No dialog") == .orderedSame {
                     noInteract = true
                 } else if let dialog = TextUtilities.value(afterLabel: "With dialog:", in: body),
                           let enabled = parseOnOff(dialog) {
@@ -533,7 +543,7 @@ public struct FileMakerTextParser: Sendable {
                 } else {
                     noInteract = nil
                 }
-                guard let noInteract else { continue }
+                guard let noInteract else { return .malformed("\(name) requires No dialog or With dialog: On/Off") }
                 return .step(.recordDialogStep(id: id, name: name, noInteract: noInteract))
             }
         }
@@ -775,6 +785,7 @@ public struct FileMakerTextParser: Sendable {
         }
 
         if let body = TextUtilities.bracketBody(forPrefix: "Constrain Found Set", in: line) {
+            if body.isEmpty { return .step(.constrainFoundSet(findWithoutIndexes: false)) }
             let raw = TextUtilities.value(afterLabel: "Find without indexes:", in: body) ?? body
             guard let enabled = parseOnOff(raw) else {
                 return .malformed("Constrain Found Set Find without indexes requires On or Off")
@@ -834,6 +845,10 @@ public struct FileMakerTextParser: Sendable {
                 criteria.append(SortRecordCriterion(table: reference.table, field: reference.field, order: order))
             }
             return .step(.sortRecords(withDialog: withDialog, sortList: SortRecordList(blanksLast: blanksLast, keepRecordsSorted: keepRecordsSorted, criteria: criteria)))
+        }
+
+        if let body = TextUtilities.bracketBody(forPrefix: "Extend Found Set", in: line), body.isEmpty {
+            return .step(.noOption(id: 127, name: "Extend Found Set"))
         }
 
         let simpleSteps: [(String, Int)] = [
@@ -960,6 +975,93 @@ public struct FileMakerTextParser: Sendable {
             let templateName = FileMakerScriptStepCatalog.officialStep(matching: line.text)?.name ?? "unmapped script step"
             steps.append(.comment(text: "-----------------  FileMaker Script Bridge TODO -----------------", isFallback: true))
             steps.append(.comment(text: "\(templateName) in FileMaker. AI draft: \(line.text)", isFallback: true))
+        }
+    }
+
+    private func dataReference(_ raw: String) -> DataReference? {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.range(of: #"^\${1,2}[\p{L}_][\p{L}\p{N}_]*$"#, options: .regularExpression) != nil {
+            return .variable(value)
+        }
+        if !value.contains(where: { ";[]()&=\"".contains($0) }),
+           let field = TextUtilities.splitFieldReference(value) {
+            return .field(table: field.table, name: field.field)
+        }
+        return nil
+    }
+
+    private func parseDataAndURLStep(_ line: String) -> LineParseResult? {
+        let names = ["Create Data File", "Open Data File", "Write to Data File", "Close Data File", "Insert from URL"]
+        guard let name = names.first(where: { TextUtilities.hasStepNamePrefix($0, in: line) }) else { return nil }
+        guard let body = TextUtilities.bracketBody(forPrefix: name, in: line) else {
+            return .malformed("\(name) requires an option block")
+        }
+        var options: [String: String] = [:]
+        var positional: [String] = []
+        let labels: [String]
+        switch name {
+        case "Create Data File": labels = ["File:", "Create folders:"]
+        case "Open Data File": labels = ["File:", "Target:"]
+        case "Write to Data File": labels = ["File ID:", "Data source:", "Write as:", "Append line feed:"]
+        case "Close Data File": labels = ["File ID:"]
+        default: labels = ["Target:", "URL:", "cURL options:", "Select:", "With dialog:", "Verify SSL Certificates:", "Automatically encode URL:"]
+        }
+        for part in TextUtilities.topLevelComponents(in: body) where !part.isEmpty {
+            var key: String?
+            var value = ""
+            if let label = labels.first(where: { TextUtilities.value(afterLabel: $0, in: part) != nil }) {
+                key = label.lowercased()
+                value = TextUtilities.value(afterLabel: label, in: part)!
+            } else {
+                let flags: [String: (String, String)] = name == "Insert from URL" ? [
+                    "select": ("select:", "On"), "no dialog": ("with dialog:", "Off"),
+                    "verify ssl certificates": ("verify ssl certificates:", "On"),
+                    "do not automatically encode url": ("automatically encode url:", "Off")
+                ] : name == "Write to Data File" ? ["append line feed": ("append line feed:", "On")] : [:]
+                if let flag = flags[part.lowercased()] { key = flag.0; value = flag.1 }
+            }
+            if let key {
+                guard options[key] == nil, !value.isEmpty else { return .malformed("\(name) has a duplicate or empty option: \(part)") }
+                options[key] = value
+            } else { positional.append(part) }
+        }
+        func boolean(_ label: String, _ defaultValue: Bool) -> Bool? {
+            guard let raw = options[label] else { return defaultValue }
+            return parseYesNo(raw)
+        }
+        switch name {
+        case "Create Data File", "Open Data File":
+            guard positional.count <= 1, !(options["file:"] != nil && !positional.isEmpty),
+                  let rawPath = options["file:"] ?? positional.first else { return .malformed("\(name) requires one file path") }
+            let path = TextUtilities.unquote(rawPath)
+            guard !path.isEmpty else { return .malformed("\(name) requires a nonempty file path") }
+            if name == "Create Data File" {
+                guard let folders = boolean("create folders:", true) else { return .malformed("Create folders requires On or Off") }
+                return .step(.createDataFile(path: path, createDirectories: folders))
+            }
+            guard let raw = options["target:"], let target = dataReference(raw) else { return .malformed("Open Data File Target requires a variable or Table::Field") }
+            return .step(.openDataFile(path: path, target: target))
+        case "Write to Data File":
+            guard positional.isEmpty, let fileID = options["file id:"],
+                  let rawSource = options["data source:"], let source = dataReference(rawSource),
+                  let append = boolean("append line feed:", false) else { return .malformed("Write to Data File requires File ID, a variable or field Data source, and valid options") }
+            let encoding = TextUtilities.unquote(options["write as:"] ?? "UTF-16").uppercased()
+            guard ["UTF-8", "UTF-16"].contains(encoding) else { return .malformed("Write as requires UTF-8 or UTF-16") }
+            return .step(.writeDataFile(fileID: fileID, source: source, utf8: encoding == "UTF-8", appendLineFeed: append))
+        case "Close Data File":
+            guard positional.isEmpty, let fileID = options["file id:"] else { return .malformed("Close Data File requires File ID: calculation") }
+            return .step(.closeDataFile(fileID: fileID))
+        default:
+            var rawTarget = options["target:"]
+            var url = options["url:"]
+            if rawTarget == nil, positional.count == 2 { rawTarget = positional.removeFirst() }
+            if url == nil, positional.count == 1 { url = positional.removeFirst() }
+            guard positional.isEmpty, let rawTarget, let target = dataReference(rawTarget), let url, !url.isEmpty,
+                  let select = boolean("select:", false), let dialog = boolean("with dialog:", false),
+                  let ssl = boolean("verify ssl certificates:", false), let encode = boolean("automatically encode url:", true) else {
+                return .malformed("Insert from URL requires a variable or field Target, URL calculation, and valid On/Off options")
+            }
+            return .step(.insertFromURL(target: target, url: url, curl: options["curl options:"], selectAll: select, withDialog: dialog, verifySSL: ssl, encodeURL: encode))
         }
     }
 
