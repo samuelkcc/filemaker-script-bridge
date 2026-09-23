@@ -425,10 +425,20 @@ public struct FileMakerTextParser: Sendable {
         }
 
         if let body = TextUtilities.bracketBody(forPrefix: "Show Custom Dialog", in: line) {
-            let components = TextUtilities.topLevelComponents(in: body)
+            let components = DialogSyntax.components(body)
+            let allowedLabels = ["Title:", "Message:", "Default Button:", "Button 2:", "Button 3:", "Commit:"]
+            guard components.allSatisfy({ component in
+                allowedLabels.contains { TextUtilities.value(afterLabel: $0, in: component) != nil }
+            }) else {
+                return .malformed("Show Custom Dialog has unsupported options; input fields must be configured in FileMaker")
+            }
+            for label in allowedLabels where label != "Commit:" {
+                guard components.filter({ TextUtilities.value(afterLabel: label, in: $0) != nil }).count <= 1 else {
+                    return .malformed("Show Custom Dialog has duplicate \(label) options")
+                }
+            }
             let title = components.compactMap { TextUtilities.value(afterLabel: "Title:", in: $0) }.first
             let message = components.compactMap { TextUtilities.value(afterLabel: "Message:", in: $0) }.first
-                ?? (components.count == 1 ? components[0] : nil)
             guard let message, !message.isEmpty else {
                 return .malformed("Show Custom Dialog requires Message: calculation")
             }
@@ -439,8 +449,13 @@ public struct FileMakerTextParser: Sendable {
                 let labels = ["Default Button:", "Button 2:", "Button 3:"]
                 guard let label = labels.first(where: {
                     TextUtilities.value(afterLabel: $0, in: labelPart) != nil
-                }), let calculation = TextUtilities.value(afterLabel: label, in: labelPart), !calculation.isEmpty else {
-                    continue
+                }) else { continue }
+                guard label == labels[min(buttons.count, 2)], buttons.count < 3,
+                      let calculation = TextUtilities.value(afterLabel: label, in: labelPart), !calculation.isEmpty else {
+                    return .malformed("Show Custom Dialog requires nonempty buttons in order: Default Button, Button 2, Button 3")
+                }
+                guard buttonParts.dropFirst().allSatisfy({ TextUtilities.value(afterLabel: "Commit:", in: $0) != nil }) else {
+                    return .malformed("Show Custom Dialog has unsupported button options")
                 }
                 let inlineCommitValue = buttonParts.dropFirst().compactMap {
                     TextUtilities.value(afterLabel: "Commit:", in: $0)

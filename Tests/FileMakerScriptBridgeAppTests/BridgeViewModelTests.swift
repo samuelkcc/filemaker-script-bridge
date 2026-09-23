@@ -4,6 +4,31 @@ import XCTest
 
 @MainActor
 final class BridgeViewModelTests: XCTestCase {
+    func testSmartFixAppliesInBulkAndRequiresClipboardUpdate() throws {
+        let clipboard = InMemoryClipboard(plainText: "Show Custom Dialog [ Message: \"Hello\" ; Button 2: \"Cancel\" ]")
+        let model = BridgeViewModel(clipboard: clipboard.client)
+        model.pasteAITextAndCreateClipboard()
+        let originalClipboard = clipboard.fileMakerXML
+        var review = SmartFixReview(source: model.sourceText)
+        review.items[0].action = .replace
+        try model.applySmartFix(review)
+        XCTAssertEqual(model.result.commentFallbackCount, 0)
+        XCTAssertNil(model.clipboardNotice)
+        XCTAssertEqual(clipboard.fileMakerXML, originalClipboard)
+        model.copyForFileMaker()
+        XCTAssertFalse(clipboard.fileMakerXML?.contains("TODO") ?? true)
+    }
+
+    func testSmartFixRejectsIncompleteControlFlowReplacement() {
+        let model = BridgeViewModel(clipboard: InMemoryClipboard().client)
+        model.sourceText = "If [ $x ]"
+        var review = SmartFixReview(source: model.sourceText)
+        review.items[0].action = .replace
+        review.items[0].replacement = "If [ $y ]"
+        XCTAssertThrowsError(try model.applySmartFix(review))
+        XCTAssertEqual(model.sourceText, "If [ $x ]")
+    }
+
     func testNewBridgeStartsEmptyWithoutValidationError() {
         let model = BridgeViewModel(clipboard: InMemoryClipboard().client)
 

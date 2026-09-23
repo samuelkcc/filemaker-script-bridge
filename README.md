@@ -1,11 +1,5 @@
 # FileMaker Script Bridge
 
-Custom dialog buttons accept arbitrary labels, including calculated and translated
-labels. For an explicitly listed button, an omitted `Commit` setting defaults to
-`No`; an explicit `Commit: Yes` or `Commit: No` is preserved. A single button needs
-no additional options. Button wording is never used to infer whether to save input
-data. Invalid explicit commit values still require correction.
-
 **Turn AI-generated script text into native FileMaker script steps—without typing every step again.**
 
 ChatGPT, Gemini, and other AI tools can help write or improve a FileMaker script, but their plain-text output cannot be pasted into FileMaker Pro Script Workspace as working steps. FileMaker expects a private, structured clipboard format rather than ordinary text.
@@ -17,6 +11,15 @@ FileMaker Script Bridge solves that last-mile problem. It converts readable AI-g
 *Paste the finished AI script into the bridge, validate it, then copy the reconstructed native steps into FileMaker Pro.*
 
 [Download the latest macOS release](https://github.com/samuelkcc/filemaker-script-bridge/releases/latest)
+
+## Latest release — 2026.09.23
+
+- **Smart Fix review:** review flagged lines together, apply validated replacements, recover exported TODO drafts, or explicitly omit steps with a recorded comment.
+- **Improved custom dialogs:** clearer validation, flexible button labels, and reviewable suggestions for missing default buttons.
+- **Expanded native support:** 97 editable subsets, including data-file steps and Insert from URL, plus improved wrapped record and find options.
+- **Universal macOS app:** Apple Silicon and Intel, macOS 13 or later.
+
+See the [release notes](https://github.com/samuelkcc/filemaker-script-bridge/releases/tag/v2026.09.23) for details.
 
 ## The problem it solves
 
@@ -78,6 +81,25 @@ Search Script Workspace for `FileMaker Script Bridge TODO` to find every generat
 
 The required `⌘C` and `⌘V` actions are intentional: the bridge cannot choose a script, insertion point, or destination on your behalf.
 
+### Wrapped record and find steps
+
+Option blocks can start on the line after a step, including `Delete Record/Request`,
+`Revert Record/Request`, and `Commit Records/Requests` followed by `[ No dialog ]`.
+Additional wrapped option blocks are joined to the same step. Diagnostic line numbers
+continue to identify the start of the step.
+
+`Constrain Found Set [ ]` uses current find requests with Find without indexes off;
+`Extend Found Set [ ]` also uses current requests. Stored `Restore` requests still need
+native FileMaker capture. Calculated navigation accepts `[ $recordNumber ]` with an
+optional following `[ No dialog ]`, as well as `[ By calculation: $recordNumber ]`.
+Empty Delete/Revert option blocks retain a confirmation dialog; explicit `No dialog`
+or `With dialog: On/Off` settings are preserved.
+
+The bridge now supports Create/Open/Write/Close Data File and Insert from URL using
+native FileMaker captures, including variable and field targets, UTF-8/UTF-16 writes,
+line-feed options, cURL calculations, SSL verification, and URL encoding settings.
+See [supported syntax](Documentation/SUPPORTED_SYNTAX.md#data-files-and-insert-from-url).
+
 ## Compatibility and data safety
 
 The in-app reference covers all 216 script steps in the official 2026 Claris FileMaker Pro Help catalogue. Coverage has two distinct AI-to-FileMaker levels:
@@ -107,6 +129,18 @@ All parsing, validation, and clipboard conversion happens on the Mac. The app do
 
 Before sharing a script with any external service, remove or review credentials, personal data, confidential prices, internal hostnames, file paths, account names, and schema details. The [AI review workflow](Documentation/AI_REVIEW_WORKFLOW.md) contains a practical checklist.
 
+## Smart Fix review
+
+Use **Smart Fix** in the validation pane to review all flagged lines and missing dialog defaults together. Choose **Select Suggested Fixes** for proposed repairs, edit individual replacements, keep unresolved items, or explicitly omit a step. Omissions leave a comment recording the original text. Replacements must compile as native steps before applying. After applying, click **Update FileMaker Clipboard** to export the revised script.
+
+Dialog suggestions add `Default Button: "OK", Commit: No`; review this behavior before approving. Missing message calculations and unsupported options require your input. Smart Fix also recognizes the bridge's exported two-comment TODO blocks. It runs locally and does not call an AI service.
+
+Custom dialog buttons accept arbitrary labels, including calculated and translated
+labels. For an explicitly listed button, an omitted `Commit` setting defaults to
+`No`; an explicit `Commit: Yes` or `Commit: No` is preserved. A single button needs
+no additional options. Button wording is never used to infer whether to save input
+data. Invalid explicit commit values still require correction.
+
 ## Build and test
 
 Xcode Command Line Tools with Swift 6 are required.
@@ -119,6 +153,15 @@ env \
 
 ./Scripts/package-app.sh release
 ```
+
+If the selected SDK lacks SwiftUI compiler plugins, the packaging script accepts `BRIDGE_MACOS_SDK` and `BRIDGE_BUILD_SYSTEM` overrides. For example, on a machine with the macOS 26.5 SDK installed:
+
+```sh
+BRIDGE_MACOS_SDK=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk \
+BRIDGE_BUILD_SYSTEM=native ./Scripts/package-app.sh release
+```
+
+Tests require a developer installation that includes XCTest; an Xcode installation must have its license accepted before use.
 
 The packaging script builds both architectures, combines them with `lipo`, bundles the application icon, applies an ad-hoc signature, verifies a metadata-free staging copy, and creates:
 
@@ -146,22 +189,3 @@ This is independent software. It is not made by, affiliated with, endorsed by, o
 If FileMaker Script Bridge saves you manual typing time, you can support continued development and the careful capture, reconstruction, and FileMaker verification of more native script-step options:
 
 [![Buy Samuel a coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://buymeacoffee.com/samuelchen)
-
-### Wrapped record and find steps
-
-Option blocks can start on the line after a step, including `Delete Record/Request`,
-`Revert Record/Request`, and `Commit Records/Requests` followed by `[ No dialog ]`.
-Additional wrapped option blocks are joined to the same step. Diagnostic line numbers
-continue to identify the start of the step.
-
-`Constrain Found Set [ ]` uses current find requests with Find without indexes off;
-`Extend Found Set [ ]` also uses current requests. Stored `Restore` requests still need
-native FileMaker capture. Calculated navigation accepts `[ $recordNumber ]` with an
-optional following `[ No dialog ]`, as well as `[ By calculation: $recordNumber ]`.
-Empty Delete/Revert option blocks retain a confirmation dialog; explicit `No dialog`
-or `With dialog: On/Off` settings are preserved.
-
-The bridge now supports Create/Open/Write/Close Data File and Insert from URL using
-native FileMaker captures, including variable and field targets, UTF-8/UTF-16 writes,
-line-feed options, cURL calculations, SSL verification, and URL encoding settings.
-See [supported syntax](Documentation/SUPPORTED_SYNTAX.md#data-files-and-insert-from-url).

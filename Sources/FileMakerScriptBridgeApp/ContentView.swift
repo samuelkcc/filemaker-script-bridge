@@ -13,6 +13,7 @@ struct ContentView: View {
     @AppStorage("appearance.isDark") private var isDarkTheme = false
     @State private var showingAbout = false
     @State private var showingStepReference = false
+    @State private var showingSmartFix = false
     @State private var workflowMode: WorkflowMode = .aiToFileMaker
 
     var body: some View {
@@ -36,6 +37,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingStepReference) {
             StepReferenceView()
+        }
+        .sheet(isPresented: $showingSmartFix) {
+            SmartFixView(model: model)
         }
     }
 
@@ -286,6 +290,14 @@ struct ContentView: View {
                     )
                 }
 
+                Button {
+                    showingSmartFix = true
+                } label: {
+                    Label("Smart Fix", systemImage: "wand.and.stars")
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("AI DRAFT TEMPLATES")
@@ -343,10 +355,10 @@ struct ContentView: View {
                     )
                 } else if !model.templateIssues.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        Label("TODO templates to complete in FileMaker", systemImage: "exclamationmark.triangle.fill")
+                        Label("TODO templates · review with Smart Fix", systemImage: "exclamationmark.triangle.fill")
                             .font(.headline)
                             .foregroundStyle(.orange)
-                        Text("\(model.templateIssues.count) AI line\(model.templateIssues.count == 1 ? " needs" : "s need") manual setup. Each pastes as a two-line FileMaker comment block headed “FileMaker Script Bridge TODO”, so search Script Workspace for that heading to find them.")
+                        Text("\(model.templateIssues.count) AI line\(model.templateIssues.count == 1 ? " needs" : "s need") review. Use Smart Fix to supply missing parameters or choose which items to keep. Unresolved items paste as comments headed “FileMaker Script Bridge TODO”.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         ForEach(model.templateIssues) { issue in

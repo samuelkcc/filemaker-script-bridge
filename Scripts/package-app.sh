@@ -13,6 +13,13 @@ resources_dir="$contents_dir/Resources"
 universal_dir="$project_dir/.build/universal/$configuration"
 binary_path="$universal_dir/FileMakerScriptBridge"
 icon_file="$project_dir/Resources/AppIcon.icns"
+swift_build_options=()
+if [[ -n "${BRIDGE_MACOS_SDK:-}" ]]; then
+    swift_build_options+=(--sdk "$BRIDGE_MACOS_SDK")
+fi
+if [[ -n "${BRIDGE_BUILD_SYSTEM:-}" ]]; then
+    swift_build_options+=(--build-system "$BRIDGE_BUILD_SYSTEM")
+fi
 
 cd "$project_dir"
 mkdir -p "$universal_dir"
@@ -26,15 +33,20 @@ for architecture in arm64 x86_64; do
         CLANG_MODULE_CACHE_PATH="$module_cache_path" \
         SWIFTPM_MODULECACHE_OVERRIDE="$module_cache_path" \
         swift build \
+            "${swift_build_options[@]}" \
             -c "$configuration" \
             --disable-sandbox \
             --scratch-path "$scratch_path" \
             --triple "$target_triple"
-    architecture_binaries+=("$(swift build -c "$configuration" --scratch-path "$scratch_path" --triple "$target_triple" --show-bin-path)/FileMakerScriptBridge")
+    architecture_binaries+=("$(env CLANG_MODULE_CACHE_PATH="$module_cache_path" SWIFTPM_MODULECACHE_OVERRIDE="$module_cache_path" swift build --disable-sandbox "${swift_build_options[@]}" -c "$configuration" --scratch-path "$scratch_path" --triple "$target_triple" --show-bin-path)/FileMakerScriptBridge")
 done
 
 lipo -create "${architecture_binaries[@]}" -output "$binary_path"
-lipo "$binary_path" -verify_arch arm64 x86_64
+built_architectures="$(lipo "$binary_path" -archs)"
+if [[ " $built_architectures " != *" arm64 "* || " $built_architectures " != *" x86_64 "* ]]; then
+    echo "Universal binary is missing a required architecture: $built_architectures" >&2
+    exit 1
+fi
 
 mkdir -p "$macos_dir" "$resources_dir"
 cp "$binary_path" "$macos_dir/FileMakerScriptBridge"

@@ -214,6 +214,26 @@ final class BridgeViewModel: ObservableObject {
         editorNavigationRevision += 1
     }
 
+    func applySmartFix(_ review: SmartFixReview) throws {
+        let updated = try review.applying(to: sourceText)
+        let preview = compiler.compile(updated, options: .init(convertUnsupportedLinesToComments: convertUnsupportedToComments), preservedSteps: preservedSteps)
+        var existingErrors = result.issues.filter { $0.severity == .error }.map { $0.message + "\n" + $0.source }
+        let introducesErrors = preview.issues.filter { $0.severity == .error }.contains { issue in
+            let signature = issue.message + "\n" + issue.source
+            if let index = existingErrors.firstIndex(of: signature) {
+                existingErrors.remove(at: index)
+                return false
+            }
+            return true
+        }
+        guard !introducesErrors else {
+            throw NSError(domain: "SmartFix", code: 1, userInfo: [NSLocalizedDescriptionKey: "These choices introduce blocking errors. Keep the affected steps or revise their replacements."])
+        }
+        sourceText = updated
+        statusMessage = "Smart Fix applied. Review remaining issues, then click Update FileMaker Clipboard."
+        statusTone = displayWarningCount > 0 || result.errorCount > 0 ? .warning : .success
+    }
+
     @discardableResult
     private func copyReadableTextToClipboard() -> Bool {
         let text = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -92,6 +92,7 @@ Straight or smart quotes are accepted around layout and script names. A copied F
 
 ```text
 Show Custom Dialog [ Message: calculation ]
+Show Custom Dialog [ titleCalculation ; messageCalculation ]
 Show Custom Dialog [ Title: calculation ; Message: calculation ]
 Show Custom Dialog [ Title: calculation ; Message: calculation ; Default Button: “Cancel”, Commit: “No” ; Button 2: “Create”, Commit: “Yes” ]
 Show Custom Dialog [ Title: calculation ; Message: calculation ; Default Button: “Cancel” ; Commit: “No” ; Button 2: “Create” ; Commit: “Yes” ]
