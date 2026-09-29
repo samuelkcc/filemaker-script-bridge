@@ -2,7 +2,15 @@ import Foundation
 
 enum DialogSyntax {
     static func components(_ body: String) -> [String] {
-        var parts = TextUtilities.topLevelComponents(in: body)
+        // AI drafts often number all three buttons. Normalize the first button
+        // before validation and Smart Fix so neither inserts a second default.
+        // Only touch option labels, never text inside a calculation.
+        var parts = TextUtilities.topLevelComponents(in: body).map { component in
+            if let value = TextUtilities.value(afterLabel: "Button 1:", in: component) {
+                return "Default Button: " + value
+            }
+            return component
+        }
         let labels = ["Title:", "Message:", "Default Button:", "Button 2:", "Button 3:", "Commit:"]
         func isNamed(_ value: String) -> Bool {
             labels.contains { TextUtilities.value(afterLabel: $0, in: value) != nil }
@@ -33,6 +41,20 @@ public struct SmartFixItem: Identifiable, Sendable {
     public let suggestion: String?
     public var replacement: String
     public var action: SmartFixAction = .keep
+    public var questions: [SmartFixQuestion] = []
+    var parameterStep: String?
+    var parameterValues: [String: String] = [:]
+
+    public mutating func useAnswers() -> Bool {
+        guard let parameterStep, questions.allSatisfy({ !$0.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else { return false }
+        var values = parameterValues
+        for question in questions { values[question.key] = question.answer.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let candidate = SmartFixParameters.text(step: parameterStep, values: values)
+        guard SmartFixReview.isNativeReplacement(candidate) else { return false }
+        replacement = candidate
+        action = .replace
+        return true
+    }
 }
 
 /// A review is tied to a source snapshot. Applying it never writes the clipboard.
@@ -79,8 +101,15 @@ public struct SmartFixReview: Sendable {
                 if normalized.count == 1, normalized[0].text == line.text { break }
                 end += 1
             }
+            let parameters = SmartFixParameters.prepare(line.text, physical: physical[start...end].joined(separator: "\n"))
+            if let parameters {
+                reason += "\n" + parameters.notes.joined(separator: " ")
+                if parameters.questions.isEmpty, Self.isNativeReplacement(parameters.text) { suggestion = parameters.text }
+            }
             return SmartFixItem(line: line.lineNumber, endLine: end + 1, original: line.text,
-                                reason: reason, suggestion: suggestion, replacement: suggestion ?? line.text)
+                                reason: reason, suggestion: suggestion, replacement: suggestion ?? line.text,
+                                questions: parameters?.questions ?? [], parameterStep: parameters?.step,
+                                parameterValues: parameters?.values ?? [:])
         }
         // Recover the two-comment TODO blocks emitted by earlier exports, too.
         for (index, heading) in result.logicalLines.enumerated() {
@@ -96,7 +125,9 @@ public struct SmartFixReview: Sendable {
             items.append(SmartFixItem(
                 line: heading.lineNumber, endLine: draftLine.lineNumber, original: draft,
                 reason: "Recover an exported TODO comment as a native step. " + (recovered?.reason ?? "Review the original AI draft before applying."),
-                suggestion: suggestion, replacement: suggestion ?? draft
+                suggestion: suggestion, replacement: suggestion ?? draft,
+                questions: recovered?.questions ?? [], parameterStep: recovered?.parameterStep,
+                parameterValues: recovered?.parameterValues ?? [:]
             ))
         }
         items.sort { $0.line < $1.line }

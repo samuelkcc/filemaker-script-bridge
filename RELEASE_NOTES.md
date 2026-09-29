@@ -1,3 +1,11 @@
+## 2026.09.29 — local build
+
+- Add whole-file Read from Data File support and preserve explicit binary/text encoding.
+- Support Export Records worksheet calculations and common AI option aliases.
+- Add Smart Fix questions for missing parameters and repair unambiguous multiline export field lists.
+- Reject duplicate/unknown export options instead of ignoring them; preserve unrecognized native XML.
+- Non-empty read amounts remain manual setup because the observed FileMaker clipboard omitted that setting.
+
 # FileMaker Script Bridge 2026.09.23
 
 ## Highlights

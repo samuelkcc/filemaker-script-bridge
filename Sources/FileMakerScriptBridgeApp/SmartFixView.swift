@@ -38,14 +38,36 @@ struct SmartFixView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     if review.items.isEmpty {
-                        Text("No TODOs or missing dialog defaults found.").padding()
+                        Text("No TODOs or missing parameters found.").padding()
                     }
                     ForEach($review.items) { $item in
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Line \(item.line)").font(.headline)
                             Text(item.original).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
                             Text(item.reason).font(.callout).foregroundStyle(.secondary)
-                            if item.suggestion == nil {
+                            if !item.questions.isEmpty {
+                                ForEach($item.questions) { $question in
+                                    Text(question.prompt).font(.callout)
+                                    if question.choices.isEmpty {
+                                        TextField(question.key, text: $question.answer)
+                                            .textFieldStyle(.roundedBorder)
+                                            .accessibilityLabel(question.prompt)
+                                            .onChange(of: question.answer) { _ in item.action = .keep }
+                                    } else {
+                                        Picker(question.key, selection: $question.answer) {
+                                            Text("Choose…").tag("")
+                                            ForEach(question.choices, id: \.self) { Text($0).tag($0) }
+                                        }
+                                        .accessibilityLabel(question.prompt)
+                                        .onChange(of: question.answer) { _ in item.action = .keep }
+                                    }
+                                }
+                                Button("Build Replacement from Answers") {
+                                    if item.useAnswers() { errorMessage = nil }
+                                    else { errorMessage = "Line \(item.line): check the answers. The replacement must contain valid native options." }
+                                }
+                                .disabled(item.questions.contains { $0.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+                            } else if item.suggestion == nil {
                                 Text("No automatic fix is available. Supply the intended parameters below, or keep this item for later.")
                                     .font(.caption).foregroundStyle(.orange)
                             }

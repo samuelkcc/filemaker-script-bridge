@@ -94,11 +94,12 @@ Straight or smart quotes are accepted around layout and script names. A copied F
 Show Custom Dialog [ Message: calculation ]
 Show Custom Dialog [ titleCalculation ; messageCalculation ]
 Show Custom Dialog [ Title: calculation ; Message: calculation ]
+Show Custom Dialog [ Title: "NAV Data Check" ; Message: "Select the data check to perform." ; Button 1: “Item cards” ; Button 2: “EPR data” ; Button 3: “Cancel” ]
 Show Custom Dialog [ Title: calculation ; Message: calculation ; Default Button: “Cancel”, Commit: “No” ; Button 2: “Create”, Commit: “Yes” ]
 Show Custom Dialog [ Title: calculation ; Message: calculation ; Default Button: “Cancel” ; Commit: “No” ; Button 2: “Create” ; Commit: “Yes” ]
 ```
 
-When buttons are omitted, the generated dialog has a default **OK** button. Up to three custom buttons and their commit settings are supported. A button's `Commit:` setting may follow after either a comma or a semicolon. Input fields are not implemented yet.
+When buttons are omitted, the generated dialog has a default **OK** button. Up to three custom buttons and their commit settings are supported. `Button 1:` is accepted as an alias for `Default Button:`; labels and button order are preserved, including when Smart Fix recovers an exported TODO block. A button's `Commit:` setting may follow after either a comma or a semicolon. Input fields are not implemented yet.
 
 ## Records, find, and windows
 
@@ -343,3 +344,36 @@ make requests, or run the script. References: [Insert from URL](https://help.cla
 [Open Data File](https://help.claris.com/en/pro-help/content/open-data-file.html),
 [Write to Data File](https://help.claris.com/en/pro-help/content/write-to-data-file.html),
 [Close Data File](https://help.claris.com/en/pro-help/content/close-data-file.html).
+
+
+## Export and read Smart Fix (2026.09.29)
+
+```text
+Export Records [ With dialog: Off ; Create folders: On ; File: "$outputPath" ; Format: XLSX ; Character set: Unicode ; Use field names: On ; Worksheet: "DK UNIT PRICE" ; Field order: dk_approval_db_price::Veste Part, dk_approval_db_price::DK Bible Price ]
+Read from Data File [ File ID: $fileID ; Amount (bytes): ; Target: $fileData ; Read as: Bytes ]
+```
+
+`Worksheet` is an optional calculation, including a quoted name or `$sheetName`.
+Export aliases include `File Name:`, `Use field names as column names`,
+`No dialog`, Yes/No flags, and `Unicode (UTF-16)`. Unknown and duplicate options
+are rejected rather than silently dropped. Export order must be comma-separated;
+Smart Fix can restore commas from separate physical lines when each line contains
+one complete field reference. Flattened ambiguous lists require the user to supply
+the field order.
+
+Smart Fix proposes missing dialog/folder flags as Off and the XLSX character set
+as Unicode. It infers XLSX only from an explicit worksheet option or `.xlsx` file
+extension. It asks for missing paths, format, field order, column-heading choices,
+file IDs, targets, and encodings using labeled inputs. Choose **Build Replacement
+from Answers**, review the generated step, then apply changes. A replacement must
+compile before it can be applied. Explicit invalid/unknown options are never
+silently removed. Existing TODO blocks can be recovered through the same review.
+
+Read targets may be variables or fields. `Read as` must explicitly specify Bytes,
+UTF-8, or UTF-16. Bytes retains binary content for XLSX attachments. An omitted or
+blank Amount means a whole-file read; FileMaker limits each read to 64 MB. A
+non-empty Amount is deliberately blocked: the native FileMaker clipboard captured
+on 2026-09-29 omitted the amount even when the step displayed one. Configure bounded
+reads directly in FileMaker and verify them there. Do not remove an explicit amount
+to make a step compile. Unknown native XML is preserved for same-session return,
+although the bridge cannot restore parameters FileMaker omitted before copying.

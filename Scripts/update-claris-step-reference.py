@@ -42,6 +42,7 @@ EDITABLE_SUBSET = {
     "Create Data File",
     "Open Data File",
     "Write to Data File",
+    "Read from Data File",
     "Close Data File",
     "Insert from URL",
 

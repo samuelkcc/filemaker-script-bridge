@@ -12,7 +12,13 @@ FileMaker Script Bridge solves that last-mile problem. It converts readable AI-g
 
 [Download the latest macOS release](https://github.com/samuelkcc/filemaker-script-bridge/releases/latest)
 
-## Latest release — 2026.09.23
+## Current local build — 2026.09.29
+
+- **Export Records:** worksheet calculations, AI option aliases, and Smart Fix repair of multiline field lists.
+- **Read from Data File:** whole-file reads with an explicit encoding; non-empty Amount remains manual setup.
+- **Smart Fix questions:** fill in missing file paths, fields, targets, encodings, and column-heading choices without guessing.
+
+## Latest published release — 2026.09.23
 
 - **Smart Fix review:** review flagged lines together, apply validated replacements, recover exported TODO drafts, or explicitly omit steps with a recorded comment.
 - **Improved custom dialogs:** clearer validation, flexible button labels, and reviewable suggestions for missing default buttons.
@@ -52,8 +58,8 @@ ChatGPT / Gemini / editor
 - Fully local conversion with no network requests, analytics, or accounts.
 - Live syntax colouring, validation, issue highlighting, and XML preview.
 - Searchable reference for all 216 official FileMaker Pro 2026 script steps.
-- 97 tested editable subsets that can be reconstructed as native FileMaker steps.
-- Completion-template comments for the other 119 official steps, keeping the AI's intent visible for manual setup in FileMaker.
+- 98 tested editable subsets that can be reconstructed as native FileMaker steps.
+- Completion-template comments for the other 118 official steps, keeping the AI's intent visible for manual setup in FileMaker.
 - Optional strict native-only mode when the clipboard must contain only tested native steps.
 - Lossless same-session preservation for copied FileMaker steps and options that are not yet editable.
 
@@ -134,6 +140,8 @@ Before sharing a script with any external service, remove or review credentials,
 Use **Smart Fix** in the validation pane to review all flagged lines and missing dialog defaults together. Choose **Select Suggested Fixes** for proposed repairs, edit individual replacements, keep unresolved items, or explicitly omit a step. Omissions leave a comment recording the original text. Replacements must compile as native steps before applying. After applying, click **Update FileMaker Clipboard** to export the revised script.
 
 Dialog suggestions add `Default Button: "OK", Commit: No`; review this behavior before approving. Missing message calculations and unsupported options require your input. Smart Fix also recognizes the bridge's exported two-comment TODO blocks. It runs locally and does not call an AI service.
+
+Three-button AI drafts may use `Button 1:`, `Button 2:`, and `Button 3:`. The bridge accepts `Button 1:` as `Default Button:` without adding an extra OK button. Smart Fix can recover older TODO comments containing this syntax.
 
 Custom dialog buttons accept arbitrary labels, including calculated and translated
 labels. For an explicitly listed button, an omitted `Commit` setting defaults to

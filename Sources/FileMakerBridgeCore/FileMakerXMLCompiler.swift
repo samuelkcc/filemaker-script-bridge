@@ -56,6 +56,16 @@ public struct FileMakerXMLCompiler: Sendable {
             return stepElement(id: 192, name: "Write to Data File", body:
                 stateNode("AppendLineFeed", append) + collapsedNode + "<DataSourceType value=\"\(utf8 ? "2" : "1")\"></DataSourceType>" +
                 "<Calculation>\(cdata(fileID))</Calculation>" + dataReferenceXML(source))
+        case .readDataFile(let fileID, let target, let encoding):
+            let reference: String
+            switch target {
+            case .variable: reference = dataReferenceXML(target)
+            case .field(let table, let name):
+                reference = "<Field table=\"\(escapeAttribute(table))\" id=\"0\" name=\"\(escapeAttribute(name))\"></Field>"
+            }
+            return stepElement(id: 193, name: "Read from Data File", body:
+                collapsedNode + "<DataSourceType value=\"\(encoding.nativeValue)\"></DataSourceType>" +
+                "<Calculation>\(cdata(fileID))</Calculation>" + reference)
         case .closeDataFile(let fileID):
             return stepElement(id: 196, name: "Close Data File", body: collapsedNode + "<Calculation>\(cdata(fileID))</Calculation>")
         case .insertFromURL(let target, let url, let curl, let select, let dialog, let ssl, let encode):
@@ -441,6 +451,9 @@ public struct FileMakerXMLCompiler: Sendable {
                 "  <ExportOptions FormatUsingCurrentLayout=\"False\" CharacterSet=\"\(options.characterSet)\"></ExportOptions>",
                 "  <ExportEntries>"
             ]
+            if let worksheet = options.worksheet {
+                nodes.insert("  <WorkSheet><Calculation>\(cdata(worksheet))</Calculation></WorkSheet>", at: 8)
+            }
             for field in options.fields {
                 nodes.append("    <ExportEntry><Field table=\"\(escapeAttribute(field.table))\" id=\"0\" name=\"\(escapeAttribute(field.field))\"></Field></ExportEntry>")
             }

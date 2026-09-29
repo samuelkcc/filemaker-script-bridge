@@ -172,7 +172,7 @@ This is a coverage index, not a copy of Claris documentation. Follow each step l
 | [Open File](https://help.claris.com/en/pro-help/content/open-file.html) | Preserve only |
 | [Print](https://help.claris.com/en/pro-help/content/print.html) | Preserve only |
 | [Print Setup](https://help.claris.com/en/pro-help/content/print-setup.html) | Preserve only |
-| [Read from Data File](https://help.claris.com/en/pro-help/content/read-from-data-file.html) | Preserve only |
+| [Read from Data File](https://help.claris.com/en/pro-help/content/read-from-data-file.html) | Editable subset |
 | [Recover File](https://help.claris.com/en/pro-help/content/recover-file.html) | Preserve only |
 | [Rename File](https://help.claris.com/en/pro-help/content/rename-file.html) | Preserve only |
 | [Save a Copy as](https://help.claris.com/en/pro-help/content/save-a-copy-as.html) | Preserve only |

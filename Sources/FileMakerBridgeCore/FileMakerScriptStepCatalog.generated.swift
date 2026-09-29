@@ -146,7 +146,7 @@ public enum FileMakerScriptStepCatalog {
         .init(name: "Open File", category: "Files script steps", documentationURL: URL(string: "https://help.claris.com/en/pro-help/content/open-file.html")!, support: .preserveOnly),
         .init(name: "Print", category: "Files script steps", documentationURL: URL(string: "https://help.claris.com/en/pro-help/content/print.html")!, support: .preserveOnly),
         .init(name: "Print Setup", category: "Files script steps", documentationURL: URL(string: "https://help.claris.com/en/pro-help/content/print-setup.html")!, support: .preserveOnly),
-        .init(name: "Read from Data File", category: "Files script steps", documentationURL: URL(string: "https://help.claris.com/en/pro-help/content/read-from-data-file.html")!, support: .preserveOnly),
+        .init(name: "Read from Data File", category: "Files script steps", documentationURL: URL(string: "https://help.claris.com/en/pro-help/content/read-from-data-file.html")!, support: .editableSubset),
         .init(name: "Recover File", category: "Files script steps", documentationURL: URL(string: "https://help.claris.com/en/pro-help/content/recover-file.html")!, support: .preserveOnly),
         .init(name: "Rename File", category: "Files script steps", documentationURL: URL(string: "https://help.claris.com/en/pro-help/content/rename-file.html")!, support: .preserveOnly),
         .init(name: "Save a Copy as", category: "Files script steps", documentationURL: URL(string: "https://help.claris.com/en/pro-help/content/save-a-copy-as.html")!, support: .preserveOnly),

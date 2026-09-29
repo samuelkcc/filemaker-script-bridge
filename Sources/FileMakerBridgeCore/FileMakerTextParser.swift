@@ -255,37 +255,27 @@ public struct FileMakerTextParser: Sendable {
         }
 
         if let body = TextUtilities.bracketBody(forPrefix: "Export Records", in: line) {
-            let components = TextUtilities.topLevelComponents(in: body)
-            let values = Dictionary(uniqueKeysWithValues: components.compactMap { component -> (String, String)? in
-                for label in ["With dialog:", "Create folders:", "File:", "Format:", "Character set:", "Use field names:", "Field order:"] {
-                    if let value = TextUtilities.value(afterLabel: label, in: component) {
-                        return (label, value)
-                    }
-                }
-                return nil
-            })
-            guard let dialogRaw = values["With dialog:"], let withDialog = parseOnOff(dialogRaw),
-                  let foldersRaw = values["Create folders:"], let createDirectories = parseOnOff(foldersRaw),
-                  let rawPath = values["File:"],
-                  let format = values["Format:"], format.caseInsensitiveCompare("XLSX") == .orderedSame,
-                  let characterSet = values["Character set:"], characterSet.caseInsensitiveCompare("Unicode") == .orderedSame,
-                  let fieldNamesRaw = values["Use field names:"], let useFieldNames = parseOnOff(fieldNamesRaw),
-                  let fieldOrder = values["Field order:"] else {
-                return .malformed("Export Records requires its native-captured output path, Format: XLSX, Character set: Unicode, automatic-open-off profile, and field order; unsupported options remain preserve-only")
+            let syntax = ExportRecordsSyntax(body)
+            if let error = syntax.error { return .malformed(error) }
+            let values = syntax.values
+            guard let dialogRaw = values["With dialog:"], let withDialog = parseYesNo(dialogRaw),
+                  let foldersRaw = values["Create folders:"], let createDirectories = parseYesNo(foldersRaw),
+                  let rawPath = values["File:"], !TextUtilities.unquote(rawPath).isEmpty,
+                  let format = values["Format:"], TextUtilities.unquote(format).uppercased() == "XLSX",
+                  let characterSet = values["Character set:"],
+                  ["unicode", "unicode (utf-16)", "utf-16"].contains(TextUtilities.unquote(characterSet).lowercased()),
+                  let fieldNamesRaw = values["Use field names:"], let useFieldNames = parseYesNo(fieldNamesRaw),
+                  let fieldOrder = values["Field order:"], let fields = ExportRecordsSyntax.fields(fieldOrder) else {
+                return .malformed("Export Records needs an output path, Format: XLSX, Character set: Unicode, With dialog, Create folders, Use field names, and comma-separated field order. Use Smart Fix to complete missing settings.")
             }
-            let path = TextUtilities.unquote(rawPath)
-            guard !path.isEmpty else { return .malformed("Export Records File cannot be empty") }
-            let fields = fieldOrder.split(separator: ",").compactMap { TextUtilities.splitFieldReference($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
-            guard fields.count == fieldOrder.split(separator: ",").count, !fields.isEmpty else {
-                return .malformed("Export Records Field order requires one or more Table::Field values separated by commas")
+            if let worksheet = values["Worksheet:"], worksheet.isEmpty {
+                return .malformed("Export Records Worksheet requires a calculation, such as \"Sheet1\" or $sheetName")
             }
             return .step(.exportRecords(options: ExportRecordsOptions(
-                withDialog: withDialog,
-                createDirectories: createDirectories,
-                path: path,
-                characterSet: "Unicode",
-                useFieldNames: useFieldNames,
-                fields: fields.map { ExportRecordField(table: $0.table, field: $0.field) }
+                withDialog: withDialog, createDirectories: createDirectories,
+                path: TextUtilities.unquote(rawPath), characterSet: "Unicode",
+                useFieldNames: useFieldNames, fields: fields,
+                worksheet: values["Worksheet:"].map(normalizeSmartQuotedCalculation)
             )))
         }
 
@@ -1006,7 +996,7 @@ public struct FileMakerTextParser: Sendable {
     }
 
     private func parseDataAndURLStep(_ line: String) -> LineParseResult? {
-        let names = ["Create Data File", "Open Data File", "Write to Data File", "Close Data File", "Insert from URL"]
+        let names = ["Create Data File", "Open Data File", "Write to Data File", "Read from Data File", "Close Data File", "Insert from URL"]
         guard let name = names.first(where: { TextUtilities.hasStepNamePrefix($0, in: line) }) else { return nil }
         guard let body = TextUtilities.bracketBody(forPrefix: name, in: line) else {
             return .malformed("\(name) requires an option block")
@@ -1018,6 +1008,7 @@ public struct FileMakerTextParser: Sendable {
         case "Create Data File": labels = ["File:", "Create folders:"]
         case "Open Data File": labels = ["File:", "Target:"]
         case "Write to Data File": labels = ["File ID:", "Data source:", "Write as:", "Append line feed:"]
+        case "Read from Data File": labels = ["File ID:", "Amount (bytes):", "Amount (Unicode code units):", "Amount:", "Target:", "Read as:"]
         case "Close Data File": labels = ["File ID:"]
         default: labels = ["Target:", "URL:", "cURL options:", "Select:", "With dialog:", "Verify SSL Certificates:", "Automatically encode URL:"]
         }
@@ -1025,7 +1016,7 @@ public struct FileMakerTextParser: Sendable {
             var key: String?
             var value = ""
             if let label = labels.first(where: { TextUtilities.value(afterLabel: $0, in: part) != nil }) {
-                key = label.lowercased()
+                key = label.lowercased().hasPrefix("amount") ? "amount:" : label.lowercased()
                 value = TextUtilities.value(afterLabel: label, in: part)!
             } else {
                 let flags: [String: (String, String)] = name == "Insert from URL" ? [
@@ -1036,7 +1027,7 @@ public struct FileMakerTextParser: Sendable {
                 if let flag = flags[part.lowercased()] { key = flag.0; value = flag.1 }
             }
             if let key {
-                guard options[key] == nil, !value.isEmpty else { return .malformed("\(name) has a duplicate or empty option: \(part)") }
+                guard options[key] == nil, (!value.isEmpty || (name == "Read from Data File" && key == "amount:")) else { return .malformed("\(name) has a duplicate or empty option: \(part)") }
                 options[key] = value
             } else { positional.append(part) }
         }
@@ -1063,6 +1054,17 @@ public struct FileMakerTextParser: Sendable {
             let encoding = TextUtilities.unquote(options["write as:"] ?? "UTF-16").uppercased()
             guard ["UTF-8", "UTF-16"].contains(encoding) else { return .malformed("Write as requires UTF-8 or UTF-16") }
             return .step(.writeDataFile(fileID: fileID, source: source, utf8: encoding == "UTF-8", appendLineFeed: append))
+        case "Read from Data File":
+            guard positional.isEmpty, let fileID = options["file id:"],
+                  let rawTarget = options["target:"], let target = dataReference(rawTarget),
+                  let rawEncoding = options["read as:"],
+                  let encoding = DataFileReadEncoding(rawValue: TextUtilities.unquote(rawEncoding).uppercased()) else {
+                return .malformed("Read from Data File requires File ID, a variable or field Target, and Read as: Bytes, UTF-8, or UTF-16. Use Smart Fix to supply missing details.")
+            }
+            guard (options["amount:"] ?? "").isEmpty else {
+                return .malformed("Read from Data File with a non-empty Amount requires manual setup in FileMaker: the captured native clipboard omits Amount. It cannot safely be replaced with a whole-file read.")
+            }
+            return .step(.readDataFile(fileID: fileID, target: target, encoding: encoding))
         case "Close Data File":
             guard positional.isEmpty, let fileID = options["file id:"] else { return .malformed("Close Data File requires File ID: calculation") }
             return .step(.closeDataFile(fileID: fileID))

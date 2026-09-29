@@ -98,7 +98,7 @@ public struct FileMakerXMLDecompiler: Sendable {
         let name = node.attributes["name"] ?? "Unknown Step"
 
         switch id {
-        case 160, 190, 191, 192, 196:
+        case 160, 190, 191, 192, 193, 196:
             return renderDataAndURLStep(node, id: id, name: name)
         case 1:
             let scriptName = node.child(named: "Script")?.attributes["name"] ?? "<unknown script>"
@@ -617,6 +617,11 @@ public struct FileMakerXMLDecompiler: Sendable {
             guard let fileID = node.directText(named: "Calculation"), let source = reference(),
                   let encoding = node.child(named: "DataSourceType")?.attributes["value"], ["1", "2"].contains(encoding) else { return renderGeneric(node, id: id, name: name) }
             text = "Write to Data File [ File ID: \(fileID) ; Data source: \(source) ; Write as: \(encoding == "2" ? "UTF-8" : "UTF-16") ; Append line feed: \(flag("AppendLineFeed")) ]"
+        case 193:
+            guard let fileID = node.directText(named: "Calculation"), let target = reference(),
+                  let value = node.child(named: "DataSourceType")?.attributes["value"],
+                  let encoding = ["1": "UTF-16", "2": "UTF-8", "3": "Bytes"][value] else { return renderGeneric(node, id: id, name: name) }
+            text = "Read from Data File [ File ID: \(fileID) ; Amount (bytes): ; Target: \(target) ; Read as: \(encoding) ]"
         case 196:
             guard let fileID = node.directText(named: "Calculation") else { return renderGeneric(node, id: id, name: name) }
             text = "Close Data File [ File ID: \(fileID) ]"
@@ -650,7 +655,8 @@ public struct FileMakerXMLDecompiler: Sendable {
     }
 
     private func renderExportRecords(_ node: ParsedXMLNode, id: Int?, name: String) -> RenderedStep {
-        let expectedChildren = ["NoInteract", "CreateDirectories", "DisableStepCollapsed", "Restore", "AutoOpen", "CreateEmail", "Profile", "UniversalPathList", "UseFieldNames", "ExportOptions", "ExportEntries"]
+        var expectedChildren = ["NoInteract", "CreateDirectories", "DisableStepCollapsed", "Restore", "AutoOpen", "CreateEmail", "Profile", "UniversalPathList", "UseFieldNames", "ExportOptions", "ExportEntries"]
+        if node.child(named: "WorkSheet") != nil { expectedChildren.insert("WorkSheet", at: 8) }
         guard node.children.map(\.name) == expectedChildren,
               node.attributes["enable"]?.caseInsensitiveCompare("True") == .orderedSame,
               let profile = node.child(named: "Profile"),
@@ -678,7 +684,17 @@ public struct FileMakerXMLDecompiler: Sendable {
         let withDialog = boolAttribute(node.child(named: "NoInteract"), name: "state") ? "Off" : "On"
         let createFolders = boolAttribute(node.child(named: "CreateDirectories"), name: "state") ? "On" : "Off"
         let useFieldNames = boolAttribute(node.child(named: "UseFieldNames"), name: "state") ? "On" : "Off"
-        return supported(name, "Export Records [ With dialog: \(withDialog) ; Create folders: \(createFolders) ; File: \(quoteObjectName(path)) ; Format: XLSX ; Character set: Unicode ; Use field names: \(useFieldNames) ; Field order: \(fields.joined(separator: ", ")) ]")
+        var text = "Export Records [ With dialog: \(withDialog) ; Create folders: \(createFolders) ; File: \(quoteObjectName(path)) ; Format: XLSX ; Character set: Unicode ; Use field names: \(useFieldNames)"
+        if let worksheet = node.text(at: ["WorkSheet", "Calculation"]) { text += " ; Worksheet: \(worksheet)" }
+        text += " ; Field order: \(fields.joined(separator: ", ")) ]"
+        let compiled = FileMakerXMLCompiler().compile(text, options: .init(convertUnsupportedLinesToComments: false))
+        let builder = XMLTreeBuilder()
+        let parser = XMLParser(data: Data(compiled.xml.utf8))
+        parser.delegate = builder
+        guard compiled.errorCount == 0, parser.parse(),
+              let rebuilt = builder.roots.flatMap({ $0.descendants(named: "Step") }).first,
+              equivalentDataStep(node, rebuilt) else { return renderGeneric(node, id: id, name: name) }
+        return supported(name, text)
     }
 
     private func renderImportRecords(_ node: ParsedXMLNode, id: Int?, name: String) -> RenderedStep {

@@ -202,6 +202,41 @@ final class FileMakerXMLCompilerTests: XCTestCase {
         XCTAssertTrue(imported.text.contains("Button 2: \"Create\", Commit: Yes"))
     }
 
+    func testNumberedFirstDialogButtonMatchesDefaultButtonXML() {
+        for firstButton in ["Button 1:", "button 1:"] {
+            let source = """
+            Show Custom Dialog [
+                Title: "NAV Data Check" ; Message: "Select the data check to perform." ;
+                \(firstButton) “Item cards”, Commit: Yes ;
+                Button 2: “EPR data” ; Commit: No ; Button 3: “Cancel”
+            ]
+            """
+            let canonical = source.replacingOccurrences(of: firstButton, with: "Default Button:")
+            let result = compiler.compile(source, options: .init(convertUnsupportedLinesToComments: false))
+            XCTAssertTrue(result.issues.isEmpty)
+            XCTAssertEqual(result.xml, compiler.compile(canonical).xml)
+            let imported = decompiler.decompile(result.xml)
+            XCTAssertTrue(imported.text.contains("Default Button: \"Item cards\", Commit: Yes"))
+            XCTAssertTrue(imported.text.contains("Button 2: \"EPR data\", Commit: No"))
+            XCTAssertTrue(imported.text.contains("Button 3: \"Cancel\", Commit: No"))
+            XCTAssertEqual(compiler.compile(imported.text).xml, result.xml)
+        }
+    }
+
+    func testNumberedButtonAliasDoesNotHideInvalidOptions() {
+        for options in [
+            "Button 1: \"First\" ; Default Button: \"Duplicate\"",
+            "Button 1: \"First\" ; Button 1: \"Duplicate\"",
+            "Button 2: \"Second\" ; Button 1: \"First\"",
+            "Button 1: \"First\", Commit: Maybe",
+            "Button 1: \"First\" ; Input #1: Table::Field"
+        ] {
+            let source = "Show Custom Dialog [ Message: \"Choose\" ; \(options) ]"
+            XCTAssertFalse(SmartFixReview.isNativeReplacement(source), source)
+            XCTAssertNil(SmartFixReview(source: source).items.first?.suggestion, source)
+        }
+    }
+
     func testCustomDialogAcceptsArbitraryLabelsWithoutCommit() {
         for label in ["OK", "Done", "Not now", "繼續", "Approval"] {
             let result = compiler.compile("Show Custom Dialog [ Message: \"Ready\" ; Default Button: \"\(label)\" ]", options: CompilationOptions(convertUnsupportedLinesToComments: false))
@@ -865,7 +900,7 @@ final class FileMakerXMLCompilerTests: XCTestCase {
     func testOfficialCatalogueMatchesAuditedClarisReference() {
         XCTAssertEqual(FileMakerScriptStepCatalog.entries.count, 216)
         XCTAssertEqual(FileMakerScriptStepCatalog.categories.count, 14)
-        XCTAssertEqual(FileMakerScriptStepCatalog.editableSubsetCount, 97)
+        XCTAssertEqual(FileMakerScriptStepCatalog.editableSubsetCount, 98)
         XCTAssertEqual(Set(FileMakerScriptStepCatalog.entries.map(\.id)).count, 216)
 
         XCTAssertEqual(

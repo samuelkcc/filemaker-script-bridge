@@ -111,6 +111,7 @@ public enum CompiledStep: Sendable, Hashable {
     case createDataFile(path: String, createDirectories: Bool)
     case openDataFile(path: String, target: DataReference)
     case writeDataFile(fileID: String, source: DataReference, utf8: Bool, appendLineFeed: Bool)
+    case readDataFile(fileID: String, target: DataReference, encoding: DataFileReadEncoding)
     case closeDataFile(fileID: String)
     case insertFromURL(target: DataReference, url: String, curl: String?, selectAll: Bool, withDialog: Bool, verifySSL: Bool, encodeURL: Bool)
     case noOption(id: Int, name: String)
@@ -194,14 +195,16 @@ public struct ExportRecordsOptions: Sendable, Hashable {
     public let characterSet: String
     public let useFieldNames: Bool
     public let fields: [ExportRecordField]
+    public let worksheet: String?
 
-    public init(withDialog: Bool, createDirectories: Bool, path: String, characterSet: String, useFieldNames: Bool, fields: [ExportRecordField]) {
+    public init(withDialog: Bool, createDirectories: Bool, path: String, characterSet: String, useFieldNames: Bool, fields: [ExportRecordField], worksheet: String? = nil) {
         self.withDialog = withDialog
         self.createDirectories = createDirectories
         self.path = path
         self.characterSet = characterSet
         self.useFieldNames = useFieldNames
         self.fields = fields
+        self.worksheet = worksheet
     }
 }
 
@@ -343,4 +346,15 @@ public struct DecompilationResult: Sendable {
 public enum DataReference: Sendable, Hashable {
     case variable(String)
     case field(table: String, name: String)
+}
+
+public enum DataFileReadEncoding: String, Sendable, Hashable {
+    case bytes = "BYTES"
+    case utf8 = "UTF-8"
+    case utf16 = "UTF-16"
+
+    var nativeValue: String {
+        switch self { case .bytes: return "3"; case .utf8: return "2"; case .utf16: return "1" }
+    }
+    var displayName: String { self == .bytes ? "Bytes" : rawValue }
 }

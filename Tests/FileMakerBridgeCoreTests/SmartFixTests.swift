@@ -2,6 +2,34 @@ import XCTest
 @testable import FileMakerBridgeCore
 
 final class SmartFixTests: XCTestCase {
+    func testNumberedMenuTODOsRecoverWithoutAddingOKOrChangingChoices() throws {
+        let drafts = [
+            "Show Custom Dialog [ Title: \"NAV Data Check\" ; Message: \"Select the data check to perform.\" ; Button 1: “Item cards” ; Button 2: “EPR data” ; Button 3: “Cancel” ]",
+            "Show Custom Dialog [ Title: \"NAV Item Cards\" ; Message: \"Select the Item Card check.\" ; Button 1: “Item cards mismatch” ; Button 2: “Item cards missing” ; Button 3: “Cancel” ]"
+        ]
+        let expectedLabels = [["\"Item cards\"", "\"EPR data\"", "\"Cancel\""],
+                              ["\"Item cards mismatch\"", "\"Item cards missing\"", "\"Cancel\""]]
+        for (draft, labels) in zip(drafts, expectedLabels) {
+            XCTAssertTrue(SmartFixReview(source: draft).items.isEmpty)
+            let source = "# -----------------  FileMaker Script Bridge TODO -----------------\n# Show Custom Dialog in FileMaker. AI draft: " + draft + "\nSet Variable [ $choice ; Value: Get ( LastMessageChoice ) ]"
+            var review = SmartFixReview(source: source)
+            XCTAssertEqual(review.items.count, 1)
+            XCTAssertNotNil(review.items.first?.suggestion)
+            review.items[0].action = .replace
+            let fixed = try review.applying(to: source)
+            let result = FileMakerXMLCompiler().compile(fixed)
+            XCTAssertFalse(fixed.contains("TODO"))
+            XCTAssertEqual(result.commentFallbackCount, 0)
+            XCTAssertEqual(result.steps.count, 2)
+            guard case let .showCustomDialog(_, _, buttons) = result.steps.first else {
+                return XCTFail("Expected recovered native menu")
+            }
+            XCTAssertEqual(buttons.map(\.calculation), labels)
+            XCTAssertEqual(buttons.map(\.commitsRecord), [false, false, false])
+            XCTAssertTrue(SmartFixReview(source: fixed).items.isEmpty)
+        }
+    }
+
     func testExportedTODOBlockCanBeRecovered() throws {
         let source = "# -----------------  FileMaker Script Bridge TODO -----------------\n# Show Custom Dialog in FileMaker. AI draft: Show Custom Dialog [ \"Title\" ; \"Message\" ]\n# after"
         var review = SmartFixReview(source: source)
