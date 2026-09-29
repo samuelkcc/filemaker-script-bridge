@@ -12,20 +12,15 @@ FileMaker Script Bridge solves that last-mile problem. It converts readable AI-g
 
 [Download the latest macOS release](https://github.com/samuelkcc/filemaker-script-bridge/releases/latest)
 
-## Current local build — 2026.09.29
+## Latest release — 2026.09.29
 
 - **Export Records:** worksheet calculations, AI option aliases, and Smart Fix repair of multiline field lists.
-- **Read from Data File:** whole-file reads with an explicit encoding; non-empty Amount remains manual setup.
+- **Read from Data File:** whole-file binary and text reads, including XLSX attachment data. Non-empty Amount remains manual setup.
 - **Smart Fix questions:** fill in missing file paths, fields, targets, encodings, and column-heading choices without guessing.
-
-## Latest published release — 2026.09.23
-
-- **Smart Fix review:** review flagged lines together, apply validated replacements, recover exported TODO drafts, or explicitly omit steps with a recorded comment.
-- **Improved custom dialogs:** clearer validation, flexible button labels, and reviewable suggestions for missing default buttons.
-- **Expanded native support:** 97 editable subsets, including data-file steps and Insert from URL, plus improved wrapped record and find options.
+- **Verified compatibility:** 98 editable subsets, 96 passing tests, and native FileMaker paste/copy checks.
 - **Universal macOS app:** Apple Silicon and Intel, macOS 13 or later.
 
-See the [release notes](https://github.com/samuelkcc/filemaker-script-bridge/releases/tag/v2026.09.23) for details.
+See the [release notes](https://github.com/samuelkcc/filemaker-script-bridge/releases/tag/v2026.09.29) for details.
 
 ## The problem it solves
 

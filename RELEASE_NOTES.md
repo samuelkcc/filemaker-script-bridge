@@ -1,10 +1,41 @@
-## 2026.09.29 — local build
+# FileMaker Script Bridge 2026.09.29
 
-- Add whole-file Read from Data File support and preserve explicit binary/text encoding.
-- Support Export Records worksheet calculations and common AI option aliases.
-- Add Smart Fix questions for missing parameters and repair unambiguous multiline export field lists.
-- Reject duplicate/unknown export options instead of ignoring them; preserve unrecognized native XML.
-- Non-empty read amounts remain manual setup because the observed FileMaker clipboard omitted that setting.
+Adds XLSX export options, whole-file data reads, and guided Smart Fix questions for incomplete AI-generated steps.
+
+## Changes
+
+- Export Records now supports worksheet-name calculations and common AI option labels. Smart Fix repairs unambiguous multiline field lists while preserving field order.
+- Read from Data File supports whole-file reads as Bytes, UTF-8, or UTF-16, with variable or field targets. Binary reads retain XLSX attachment data.
+- Smart Fix asks for missing paths, field order, column-heading choices, file IDs, targets, and encodings instead of guessing. Safe defaults and inferred settings are shown for review.
+- Existing TODO comments can be recovered through the same review workflow.
+- Numbered custom-dialog buttons are accepted without inserting an extra OK button.
+- Duplicate and unknown export options are rejected rather than silently ignored; unrecognized native XML remains preserved.
+- Coverage increases to 98 editable subsets across 216 official script steps.
+
+## Validation
+
+- All 96 automated tests passed.
+- Export and read steps passed native FileMaker paste/copy round-trip checks, including worksheet names, headings, binary reads, UTF-8, and a UTF-16 field target.
+- Universal Apple Silicon and Intel app; bundle signature verified.
+- Runtime export, read, and email execution was not tested as part of clipboard verification.
+
+## Known limitation
+
+Non-empty Read from Data File amounts require manual setup in FileMaker. The observed native clipboard omitted that parameter, so the bridge blocks these drafts rather than silently converting them to whole-file reads. Blank or omitted Amount reads the whole file, subject to FileMaker's 64 MB per-read limit.
+
+## Download and requirements
+
+Download **FileMaker Script Bridge.app.zip**, extract it, and move the app to Applications.
+
+- macOS 13 or later; Apple Silicon and Intel.
+- FileMaker Pro 26 for the documented native clipboard compatibility.
+- Fully local operation; no accounts, analytics, or network requests.
+- Ad-hoc signed, not Apple-notarized. macOS may require Control-clicking the app and choosing **Open** on first launch.
+- Preservation markers retain their original XML only during the same app session.
+
+Released under GPL-3.0-or-later. This independent project is not affiliated with or endorsed by Claris International Inc.
+
+---
 
 # FileMaker Script Bridge 2026.09.23
 
